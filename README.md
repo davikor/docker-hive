@@ -1,49 +1,39 @@
-[![Gitter chat](https://badges.gitter.im/gitterHQ/gitter.png)](https://gitter.im/big-data-europe/Lobby)
+# Getting HIVE up and running
 
-# docker-hive
+## Starting services
 
-This is a docker container for Apache Hive 2.3.2. It is based on https://github.com/big-data-europe/docker-hadoop so check there for Hadoop configurations.
-This deploys Hive and starts a hiveserver2 on port 10000.
-Metastore is running with a connection to postgresql database.
-The hive configuration is performed with HIVE_SITE_CONF_ variables (see hadoop-hive.env for an example).
+> `docker-compose up -d`
 
-To run Hive with postgresql metastore:
-```
-    docker-compose up -d
-```
+> `docker-compose up -d presto-coordinator`
 
-To deploy in Docker Swarm:
-```
-    docker stack deploy -c docker-compose.yml hive
-```
+## Loading data
 
-To run a PrestoDB 0.181 with Hive connector:
+Login onto hive-server
+> `docker-compose exec hive-server bash`
 
-```
-  docker-compose up -d presto-coordinator
-```
+Connect with beeline cli to hive
+> `/opt/hive/bin/beeline -u jdbc:hive2://localhost:10000`
 
-This deploys a Presto server listens on port `8080`
+create and fill table
+> `CREATE TABLE pokes (foo INT, bar STRING);`
 
-## Testing
-Load data into Hive:
-```
-  $ docker-compose exec hive-server bash
-  # /opt/hive/bin/beeline -u jdbc:hive2://localhost:10000
-  > CREATE TABLE pokes (foo INT, bar STRING);
-  > LOAD DATA LOCAL INPATH '/opt/hive/examples/files/kv1.txt' OVERWRITE INTO TABLE pokes;
-```
+> `LOAD DATA LOCAL INPATH '/opt/hive/examples/files/kv1.txt' OVERWRITE INTO TABLE pokes;`
 
-Then query it from PrestoDB. You can get [presto.jar](https://prestosql.io/docs/current/installation/cli.html) from PrestoDB website:
-```
-  $ wget https://repo1.maven.org/maven2/io/prestosql/presto-cli/308/presto-cli-308-executable.jar
-  $ mv presto-cli-308-executable.jar presto.jar
-  $ chmod +x presto.jar
-  $ ./presto.jar --server localhost:8080 --catalog hive --schema default
-  presto> select * from pokes;
-```
+## Execute MatchPath queries
 
-## Contributors
-* Ivan Ermilov [@earthquakesan](https://github.com/earthquakesan) (maintainer)
-* Yiannis Mouchakis [@gmouchakis](https://github.com/gmouchakis)
-* Ke Zhu [@shawnzhu](https://github.com/shawnzhu)
+Examples can be found in Hive-Unittests, e.g. [here](https://github.com/apache/hive/blob/master/ql/src/test/queries/clientpositive/ptf_matchpath.q), [here](https://github.com/apache/hive/blob/master/itests/hive-blobstore/src/test/queries/clientpositive/ptf_matchpath.q) and [here](https://github.com/apache/hive/blob/master/ql/src/test/queries/clientpositive/ptf_register_tblfn.q).
+
+Example
+
+`select origin_city_name, fl_num, year, month, day_of_month, sz
+from matchpath(on 
+        flights_tiny 
+        distribute by fl_num 
+        sort by year, month, day_of_month
+        arg1('EARLY+.LATE'), 
+        arg2('LATE'), 
+        arg3(arr_delay > 15), 
+        arg4('EARLY'), 
+        arg5(arr_delay < -15), 
+        arg6('origin_city_name, fl_num, year, month, day_of_month, size(tpath) as sz, tpath') 
+   );`

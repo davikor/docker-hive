@@ -1,0 +1,2 @@
+*.sh eof=lf
+*.properties eof=lf
